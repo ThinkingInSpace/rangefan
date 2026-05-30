@@ -786,10 +786,32 @@ function exportJPG() {
     t.fillStyle = '#ffffff';
     t.fillRect(0, 0, tmp.width, tmp.height);
     t.drawImage(canvas, 0, 0);
+    drawExportWatermark(t, tmp.width, tmp.height);
     const link = document.createElement('a');
     link.download = jpgExportName();
     link.href = tmp.toDataURL('image/jpeg', 0.94);
     link.click();
+}
+
+function drawExportWatermark(tCtx, w, h) {
+    const text = '@RhodesMaps | www.thinkinginspace.net';
+    const fontSize = Math.max(10, Math.round(Math.min(w, h) * 0.014));
+    const margin = Math.max(10, Math.round(fontSize * 1.1));
+    tCtx.save();
+    tCtx.font = `600 ${fontSize}px "Aptos","Avenir Next","Inter","Segoe UI",system-ui,sans-serif`;
+    tCtx.textAlign = 'right';
+    tCtx.textBaseline = 'bottom';
+    tCtx.lineJoin = 'round';
+    if (mapMode === 'raster') {
+        tCtx.strokeStyle = 'rgba(0,0,0,0.28)';
+        tCtx.lineWidth = Math.max(2, fontSize * 0.18);
+        tCtx.strokeText(text, w - margin, h - margin);
+        tCtx.fillStyle = 'rgba(255,255,255,0.58)';
+    } else {
+        tCtx.fillStyle = d3.color(theme.label || theme.fanStroke || '#1a2b3c').copy({ opacity: 0.50 }).formatRgb();
+    }
+    tCtx.fillText(text, w - margin, h - margin);
+    tCtx.restore();
 }
 
 function resize() {
