@@ -11,8 +11,8 @@
         canvas { display: block; touch-action: none; cursor: move; }
         canvas.panning { cursor: grab; }
         .mobile-toggle {
-            display: none; position: absolute; top: 12px; left: 12px;
-            width: 42px; height: 42px; background: white; z-index: 101;
+            display: none; position: fixed; top: 12px; left: 12px;
+            width: 42px; height: 42px; background: white; z-index: 400;
             border-radius: 50%; align-items: center; justify-content: center;
             cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             font-size: 1.1rem; border: 1px solid rgba(0,0,0,0.1);
@@ -29,11 +29,13 @@
         }
         @media (max-width: 600px) {
             .panel {
-                top: 0; left: 0; height: 100vh; width: min(280px, 88vw);
-                border-radius: 0; transform: translateX(-110%); padding-top: 62px;
-                max-height: 100vh;
+                top: 0; left: 0; height: 100dvh; width: min(310px, 92vw);
+                border-radius: 0; transform: translateX(-110%); padding: 54px 8px 12px;
+                max-height: 100dvh; z-index: 300;
             }
             .panel.open { transform: translateX(0); }
+            .footer { display: none; }
+            .hint { margin-top: 4px; }
         }
         h1 { margin: 0 0 6px 0; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 2px solid var(--accent); padding-bottom: 3px; color: var(--accent); font-weight: 750; }
         .field-label { font-size: 0.52rem; color: #666; margin-bottom: 1px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
@@ -84,7 +86,7 @@
     <div class="load-sub" id="load-sub">Loading map data...</div>
 </div>
 
-<div class="mobile-toggle" id="mobileToggle" onclick="togglePanel()">&#9776;</div>
+<div class="mobile-toggle" id="mobileToggle" onclick="togglePanel()" role="button" aria-label="Toggle controls" aria-expanded="false">&#9776;</div>
 
 <div class="panel" id="controlPanel">
     <h1>Range Fan Map Generator</h1>
@@ -106,6 +108,11 @@
             <option value="sage">Sage</option>
             <option value="copper">Copper</option>
             <option value="plum" selected>Plum</option>
+            <option value="fjord">Fjord</option>
+            <option value="moss">Moss</option>
+            <option value="mist">Mist</option>
+            <option value="ember">Ember</option>
+            <option value="inkwash">Inkwash</option>
         </select>
     </div>
 
@@ -225,6 +232,31 @@ const THEMES = {
         ocean: '#ece7ef', land: '#fbf8fb', borders: '#7f6388',
         fanFill: 'rgba(111,68,126,0.18)', fanStroke: '#5a3569',
         halo: 'rgba(255,255,255,0.92)', pillBg: '#5a3569', pillText: '#ffffff', dot: '#5a3569', label: '#3e2848', vignette: 'rgba(68,45,76,0.12)'
+    },
+    fjord: {
+        ocean: '#d8e7ea', land: '#f7f8f5', borders: '#4f8792',
+        fanFill: 'rgba(51,116,132,0.20)', fanStroke: '#276272',
+        halo: 'rgba(255,255,255,0.92)', pillBg: '#276272', pillText: '#ffffff', dot: '#276272', label: '#23434a', vignette: 'rgba(33,73,86,0.13)'
+    },
+    moss: {
+        ocean: '#e2e8df', land: '#fbfaf4', borders: '#748563',
+        fanFill: 'rgba(98,120,72,0.19)', fanStroke: '#4d6438',
+        halo: 'rgba(255,255,255,0.92)', pillBg: '#4d6438', pillText: '#ffffff', dot: '#4d6438', label: '#344126', vignette: 'rgba(70,82,47,0.12)'
+    },
+    mist: {
+        ocean: '#eef1f3', land: '#ffffff', borders: '#8fa1ad',
+        fanFill: 'rgba(74,102,120,0.15)', fanStroke: '#586e7d',
+        halo: 'rgba(255,255,255,0.94)', pillBg: '#586e7d', pillText: '#ffffff', dot: '#586e7d', label: '#394954', vignette: 'rgba(60,78,90,0.10)'
+    },
+    ember: {
+        ocean: '#eee7df', land: '#fffaf4', borders: '#a06f63',
+        fanFill: 'rgba(148,75,58,0.18)', fanStroke: '#7d3f34',
+        halo: 'rgba(255,255,255,0.92)', pillBg: '#7d3f34', pillText: '#ffffff', dot: '#7d3f34', label: '#4f302b', vignette: 'rgba(95,50,40,0.12)'
+    },
+    inkwash: {
+        ocean: '#e9edf0', land: '#fafafa', borders: '#49535c',
+        fanFill: 'rgba(34,45,55,0.16)', fanStroke: '#232b33',
+        halo: 'rgba(255,255,255,0.94)', pillBg: '#232b33', pillText: '#ffffff', dot: '#232b33', label: '#20262d', vignette: 'rgba(20,28,36,0.11)'
     }
 };
 
@@ -248,8 +280,17 @@ const projection = d3.geoAzimuthalEquidistant().precision(0.2).clipAngle(180 - 1
 
 function mapRadius() { return projection.scale() * Math.PI; }
 function setStatus(msg) { document.getElementById('status').innerText = msg; }
-function togglePanel() { document.getElementById('controlPanel').classList.toggle('open'); }
-function closePanelOnMobile() { if (window.innerWidth <= 600) document.getElementById('controlPanel').classList.remove('open'); }
+function togglePanel() {
+    const panel = document.getElementById('controlPanel');
+    panel.classList.toggle('open');
+    document.getElementById('mobileToggle').setAttribute('aria-expanded', panel.classList.contains('open') ? 'true' : 'false');
+}
+function closePanelOnMobile() {
+    if (window.innerWidth <= 600) {
+        document.getElementById('controlPanel').classList.remove('open');
+        document.getElementById('mobileToggle').setAttribute('aria-expanded', 'false');
+    }
+}
 
 function cleanNumber(value, fallback, min, max) {
     const n = Number(value);
@@ -543,13 +584,13 @@ function renderVector(tCtx, cx, cy, radius) {
         tCtx.beginPath(); gPath(land);
         tCtx.fillStyle = theme.land; tCtx.fill();
     }
-    if (lakes) {
-        tCtx.beginPath(); gPath(lakes);
-        tCtx.fillStyle = theme.ocean; tCtx.fill();
-    }
     if (countries) {
         tCtx.beginPath(); gPath(countries);
         tCtx.strokeStyle = theme.borders; tCtx.lineWidth = 0.45; tCtx.stroke();
+    }
+    if (lakes) {
+        tCtx.beginPath(); gPath(lakes);
+        tCtx.fillStyle = theme.ocean; tCtx.fill();
     }
     const vg = tCtx.createRadialGradient(cx, cy, radius * 0.74, cx, cy, radius);
     vg.addColorStop(0, 'rgba(0,0,0,0)');
@@ -839,6 +880,60 @@ canvas.addEventListener('wheel', e => {
     zoomAt([e.clientX, e.clientY], e.deltaY < 0 ? 1.1 : 0.9);
     requestRender();
 }, { passive: false });
+
+let touchState = null;
+function touchCenter(touches) {
+    const a = touches[0], b = touches[1];
+    return [(a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2];
+}
+function touchDistance(touches) {
+    const a = touches[0], b = touches[1];
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    closePanelOnMobile();
+    if (e.touches.length === 1) {
+        touchState = { mode: 'pan', x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+        touchState = { mode: 'pinch', distance: touchDistance(e.touches), center: touchCenter(e.touches) };
+    }
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!touchState) return;
+    if (touchState.mode === 'pan' && e.touches.length === 1) {
+        const t = projection.translate();
+        const x = e.touches[0].clientX;
+        const y = e.touches[0].clientY;
+        projection.translate([t[0] + x - touchState.x, t[1] + y - touchState.y]);
+        touchState.x = x;
+        touchState.y = y;
+        requestRender();
+    } else if (e.touches.length === 2) {
+        const nextDistance = touchDistance(e.touches);
+        const nextCenter = touchCenter(e.touches);
+        if (touchState.mode !== 'pinch') {
+            touchState = { mode: 'pinch', distance: nextDistance, center: nextCenter };
+            return;
+        }
+        if (touchState.distance > 0) zoomAt(nextCenter, nextDistance / touchState.distance);
+        const t = projection.translate();
+        projection.translate([t[0] + nextCenter[0] - touchState.center[0], t[1] + nextCenter[1] - touchState.center[1]]);
+        touchState.distance = nextDistance;
+        touchState.center = nextCenter;
+        requestRender();
+    }
+}, { passive: false });
+canvas.addEventListener('touchend', e => {
+    if (e.touches.length === 1) {
+        touchState = { mode: 'pan', x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else {
+        touchState = null;
+    }
+}, { passive: false });
+canvas.addEventListener('touchcancel', () => { touchState = null; }, { passive: false });
+
 document.getElementById('center-display').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleGenerate();
 });
