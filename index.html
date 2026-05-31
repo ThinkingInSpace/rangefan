@@ -56,6 +56,22 @@
         .center-row { display: flex; gap: 4px; align-items: flex-end; margin-bottom: 4px; }
         .center-row input { margin-bottom: 0; flex: 1; }
         .center-row button { flex-shrink: 0; padding: 4px 7px; font-size: 0.54rem; font-weight: bold; text-transform: uppercase; border: none; border-radius: 5px; cursor: pointer; background: var(--accent); color: white; white-space: nowrap; }
+        .range-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 2px 0; }
+        .range-header .field-label { margin-bottom: 0; }
+        .range-add-btn, .range-remove-btn {
+            display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+            width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.16);
+            background: rgba(255,255,255,0.74); color: var(--accent); cursor: pointer;
+            font-family: inherit; font-weight: 850; line-height: 1; padding: 0;
+        }
+        .range-add-btn { font-size: 15px; }
+        .range-remove-btn { font-size: 16px; color: rgba(70,48,64,0.78); }
+        .range-segment-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 5px; }
+        .range-segment-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) 24px; gap: 4px; align-items: center; }
+        .range-segment-row.is-primary { grid-template-columns: 18px minmax(0, 1fr); }
+        .range-segment-row.is-primary .range-remove-btn { display: none; }
+        .range-segment-index { color: #777; font-size: 0.52rem; font-weight: 800; text-align: center; }
+        .range-segment-row input { margin-bottom: 0; }
         .btn-group { display: flex; flex-direction: column; gap: 4px; }
         .btn-row { display: flex; gap: 4px; }
         button.btn-render { background: var(--accent); color: white; font-size: 0.6rem; font-weight: bold; padding: 6px 5px; border: none; border-radius: 5px; cursor: pointer; flex: 1; text-transform: uppercase; }
@@ -139,8 +155,17 @@
         <button onclick="updateCenterFromInput()">Set</button>
     </div>
 
-    <div class="field-label">Ranges (km)</div>
-    <input type="text" id="range-km-input" value="1000" placeholder="e.g. 500, 1000, 1500">
+    <div class="range-header">
+        <div class="field-label">Range Segments (km)</div>
+        <button class="range-add-btn" id="add-range-segment" type="button" onclick="addRangeSegment()" aria-label="Add range segment" title="Add range segment">+</button>
+    </div>
+    <div class="range-segment-list" id="range-segment-list" aria-label="Range segments">
+        <div class="range-segment-row is-primary">
+            <span class="range-segment-index">1</span>
+            <input type="text" class="range-segment-input" value="1000" placeholder="1000" inputmode="decimal" aria-label="Range segment 1 in kilometers">
+            <button class="range-remove-btn" type="button" onclick="removeRangeSegment(this)" aria-label="Remove range segment" title="Remove range segment" hidden>&times;</button>
+        </div>
+    </div>
 
     <div class="field-label">Center Azimuth <span id="azimuth-value">100°</span></div>
     <input type="range" id="azimuth-input" min="0" max="359" value="100" step="1">
@@ -298,15 +323,6 @@ function cleanNumber(value, fallback, min, max) {
     return Math.max(min, Math.min(max, n));
 }
 
-function parseRanges() {
-    const raw = document.getElementById('range-km-input').value;
-    const ranges = raw.split(',')
-        .map(v => Number(v.trim().replace(/,/g, '')))
-        .filter(v => Number.isFinite(v) && v > 0 && v <= Math.PI * R)
-        .sort((a, b) => a - b);
-    return [...new Set(ranges)];
-}
-
 function parsePointList() {
     const raw = document.getElementById('point-list-input').value;
     const seen = new Set();
@@ -321,7 +337,116 @@ function parsePointList() {
         });
 }
 
+function parseRangeEntries(raw) {
+    return String(raw || '').split(/[,\n]/)
+        .map(v => Number(v.trim()))
+        .filter(v => Number.isFinite(v) && v > 0 && v <= Math.PI * R);
+}
+
+function normalizeRanges(ranges) {
+    return [...new Set(ranges)].sort((a, b) => a - b);
+}
+
+function getRangeInputs() {
+    return Array.from(document.querySelectorAll('.range-segment-input'));
+}
+
+function parseRanges() {
+    return normalizeRanges(getRangeInputs().flatMap(input => parseRangeEntries(input.value)));
+}
+
+function createRangeRow(value = '') {
+    const row = document.createElement('div');
+    row.className = 'range-segment-row';
+
+    const index = document.createElement('span');
+    index.className = 'range-segment-index';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'range-segment-input';
+    input.value = value;
+    input.placeholder = '1000';
+    input.inputMode = 'decimal';
+
+    const remove = document.createElement('button');
+    remove.className = 'range-remove-btn';
+    remove.type = 'button';
+    remove.innerHTML = '&times;';
+    remove.title = 'Remove range segment';
+    remove.setAttribute('aria-label', 'Remove range segment');
+    remove.onclick = () => removeRangeSegment(remove);
+
+    row.append(index, input, remove);
+    return row;
+}
+
+function updateRangeRowState() {
+    const rows = Array.from(document.querySelectorAll('.range-segment-row'));
+    rows.forEach((row, index) => {
+        const label = row.querySelector('.range-segment-index');
+        const input = row.querySelector('.range-segment-input');
+        const remove = row.querySelector('.range-remove-btn');
+        row.classList.toggle('is-primary', index === 0);
+        if (label) label.textContent = index + 1;
+        if (input) input.setAttribute('aria-label', `Range segment ${index + 1} in kilometers`);
+        if (remove) {
+            remove.hidden = index === 0;
+            remove.disabled = index === 0;
+        }
+    });
+}
+
+function setRangeRows(values, focusLast = false) {
+    const list = document.getElementById('range-segment-list');
+    const rows = values.length ? values : [''];
+    list.replaceChildren(...rows.map(value => createRangeRow(String(value))));
+    updateRangeRowState();
+    if (focusLast) {
+        const inputs = getRangeInputs();
+        inputs[inputs.length - 1]?.focus();
+    }
+}
+
+function addRangeSegment(value = '') {
+    const list = document.getElementById('range-segment-list');
+    list.appendChild(createRangeRow(value));
+    updateRangeRowState();
+    const inputs = getRangeInputs();
+    inputs[inputs.length - 1]?.focus();
+    syncFanControls();
+}
+
+function removeRangeSegment(button) {
+    const list = document.getElementById('range-segment-list');
+    const row = button.closest('.range-segment-row');
+    if (!row || row === list.firstElementChild) return;
+    row.remove();
+    updateRangeRowState();
+    syncFanControls();
+}
+
+function expandRangeInputIfNeeded(input, replacementValues = null) {
+    if (replacementValues === null && !/[\n,]/.test(input.value)) return false;
+    const ownValues = replacementValues || parseRangeEntries(input.value);
+    const values = getRangeInputs().flatMap(el => el === input ? ownValues : parseRangeEntries(el.value));
+    const normalized = normalizeRanges(values);
+    if (normalized.length <= 1) return false;
+    setRangeRows(normalized, true);
+    syncFanControls();
+    return true;
+}
+
+function handleRangePaste(e) {
+    if (!e.target.classList.contains('range-segment-input')) return;
+    const pasted = parseRangeEntries(e.clipboardData?.getData('text') || '');
+    if (pasted.length <= 1) return;
+    e.preventDefault();
+    expandRangeInputIfNeeded(e.target, pasted);
+}
+
 function syncFanControls(shouldRender = true) {
+    updateRangeRowState();
     fanRangesKm = parseRanges();
     if (!fanRangesKm.length) fanRangesKm = [1000];
     fanAzimuth = cleanNumber(document.getElementById('azimuth-input').value, 100, 0, 359);
@@ -937,7 +1062,16 @@ canvas.addEventListener('touchcancel', () => { touchState = null; }, { passive: 
 document.getElementById('center-display').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleGenerate();
 });
-['range-km-input', 'azimuth-input', 'fan-width-input'].forEach(id => {
+document.getElementById('range-segment-list').addEventListener('paste', handleRangePaste);
+document.getElementById('range-segment-list').addEventListener('input', e => {
+    if (!e.target.classList.contains('range-segment-input')) return;
+    syncFanControls();
+});
+document.getElementById('range-segment-list').addEventListener('change', e => {
+    if (!e.target.classList.contains('range-segment-input')) return;
+    if (!expandRangeInputIfNeeded(e.target)) syncFanControls();
+});
+['azimuth-input', 'fan-width-input'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input', syncFanControls);
     el.addEventListener('change', syncFanControls);
